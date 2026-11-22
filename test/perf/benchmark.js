@@ -94,6 +94,20 @@ scenario('eval: variable lookup in wide context (100 entries, spaced keys)', () 
   evaluate('variable 99 + variable 50 + variable 0', wide);
 }, { iterations: 5000, warmup: 500 });
 
+// --- name resolution ---
+// (names are resolved while the expression is built, which happens on
+// every call; the cost per reference and per node shows here)
+
+scenario('eval: 10 variable references, none a built-in', (i) => {
+  evaluate('a + b + c + d + e + f + g + h + i + j', {
+    a: i, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7, i: 8, j: 9
+  });
+}, { iterations: 5000, warmup: 500 });
+
+scenario('eval: literals only, no variable references', () => {
+  evaluate('{ a: [ 1, 2, 3 ], b: "foo", c: { d: true, e: 1.5, f: [ "x", "y" ] }, g: 1 + 2 * 3 }', {});
+}, { iterations: 5000, warmup: 500 });
+
 // --- builtins ---
 
 const list1k = bigList(1000);
@@ -145,10 +159,21 @@ scenario('eval: for x in 1k list, 50-wide context', () => {
   evaluate('for x in list return x * 2', forCtx);
 }, { iterations: 500, warmup: 50 });
 
+// --- name resolved once per expression, used on every iteration ---
+// (guards the build-time resolution of names that are not in the context)
+
+scenario('eval: for x in 1k list, unresolved name per iteration', () => {
+  evaluate('for x in list return x + y', { list: list1k });
+}, { iterations: 200, warmup: 20 });
+
 // --- unary tests ---
 
 scenario('unaryTest: range + list of tests', (i) => {
   unaryTest('[1..10], > 100, "foo"', { '?': i % 200 });
+}, { iterations: 5000, warmup: 500 });
+
+scenario('unaryTest: range + test against variables', (i) => {
+  unaryTest('[min..max], other', { '?': i % 10, min: 3, max: 6, other: 9 });
 }, { iterations: 5000, warmup: 500 });
 
 // ---------- report ----------
